@@ -1,0 +1,52 @@
+# Node modules
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Ambiente
+.env
+.env.local
+.env.*.local
+
+# Cache
+.cache/
+tmp/
+temp/
+*.tmp
+
+# Build
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Arquivos do Render (caso use)
+render.yaml
+
+# Banco de dados local (caso use MongoDB local com arquivos)
+*.db
+*.ldb
+
+# Arquivos PDF gerados (caso salve localmente antes de enviar)
+*.pdf
+
+# Outros
+*.bak
+*.swp
+*.zip
+*.tar
+*.gz
+*.rar

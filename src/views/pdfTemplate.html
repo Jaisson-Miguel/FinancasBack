@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Relatório de Movimentações Financeiras</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20mm;
+        font-size: 10px;
+      }
+      h1,
+      h2,
+      h3 {
+        color: #333;
+      }
+      h1 {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      h2 {
+        border-bottom: 1px solid #eee;
+        padding-bottom: 5px;
+        margin-top: 20px;
+      }
+      h3 {
+        margin-top: 15px;
+        margin-bottom: 5px;
+        color: #555;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 10px;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 6px;
+        text-align: left;
+      }
+      th {
+        background-color: #f2f2f2;
+      }
+      .header-info {
+        text-align: right;
+        font-size: 9px;
+        margin-bottom: 10px;
+      }
+      .total-saldo {
+        text-align: right;
+        font-weight: bold;
+        margin-top: 20px;
+        font-size: 12px;
+      }
+      .mov-entrada {
+        color: green;
+      }
+      .mov-saida {
+        color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Relatório de Movimentações Financeiras</h1>
+    <div class="header-info">Data de Geração: {{report.dataGeracao}}</div>
+
+    <h2>Movimentações por Caixa Secundário</h2>
+    {{#each report.movimentacoesPorCaixaSecundario}}
+    <h3>Caixa: {{this.nome}}</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Descrição</th>
+          <th>Categoria</th>
+          <th>Tipo</th>
+          <th>Valor</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each this.movimentacoes}}
+        <tr>
+          <td>{{this.data}}</td>
+          <td>{{this.descricao}}</td>
+          <td>{{this.categoria}}</td>
+          <td
+            class="{{#if (eq this.tipo 'Entrada')}}mov-entrada{{else}}mov-saida{{/if}}"
+          >
+            {{this.tipo}}
+          </td>
+          <td>{{this.valor}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <p>Nenhuma movimentação encontrada para caixas secundários.</p>
+    {{/each}}
+
+    <h2>Movimentações do Caixa Principal por Categoria</h2>
+    {{#each report.movimentacoesCaixaPrincipalPorCategoria}}
+    <h3>Categoria: {{this.nome}} (Total: {{this.totalCategoria}})</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Descrição</th>
+          <th>Tipo</th>
+          <th>Valor</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each this.movimentacoes}}
+        <tr>
+          <td>{{this.data}}</td>
+          <td>{{this.descricao}}</td>
+          <td
+            class="{{#if (eq this.tipo 'Entrada')}}mov-entrada{{else}}mov-saida{{/if}}"
+          >
+            {{this.tipo}}
+          </td>
+          <td>{{this.valor}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <p>Nenhuma movimentação encontrada para o Caixa Principal.</p>
+    {{/each}}
+
+    <div class="total-saldo">
+      Saldo Total do Sistema: {{report.saldoTotalSistema}}
+    </div>
+  </body>
+</html>
