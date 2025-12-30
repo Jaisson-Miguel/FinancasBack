@@ -65,39 +65,6 @@
     <h1>Relatório de Movimentações Financeiras</h1>
     <div class="header-info">Data de Geração: {{report.dataGeracao}}</div>
 
-    <h2>Movimentações por Caixa Secundário</h2>
-    {{#each report.movimentacoesPorCaixaSecundario}}
-    <h3>Caixa: {{this.nome}}</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Data</th>
-          <th>Descrição</th>
-          <th>Categoria</th>
-          <th>Tipo</th>
-          <th>Valor</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{#each this.movimentacoes}}
-        <tr>
-          <td>{{this.data}}</td>
-          <td>{{this.descricao}}</td>
-          <td>{{this.categoria}}</td>
-          <td
-            class="{{#if (eq this.tipo 'Entrada')}}mov-entrada{{else}}mov-saida{{/if}}"
-          >
-            {{this.tipo}}
-          </td>
-          <td>{{this.valor}}</td>
-        </tr>
-        {{/each}}
-      </tbody>
-    </table>
-    {{else}}
-    <p>Nenhuma movimentação encontrada para caixas secundários.</p>
-    {{/each}}
-
     <h2>Movimentações do Caixa Principal por Categoria</h2>
     {{#each report.movimentacoesCaixaPrincipalPorCategoria}}
     <h3>Categoria: {{this.nome}} (Total: {{this.totalCategoria}})</h3>
@@ -129,8 +96,43 @@
     <p>Nenhuma movimentação encontrada para o Caixa Principal.</p>
     {{/each}}
 
+    <h2>Movimentações por Caixa Secundário</h2>
+    {{#each report.movimentacoesPorCaixaSecundario}}
+    <h3>Caixa: {{this.nome}}</h3>
+    <p></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Descrição</th>
+          <th>Categoria</th>
+          <th>Tipo</th>
+          <th>Valor</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each this.movimentacoes}}
+        <tr>
+          <td>{{this.data}}</td>
+          <td>{{this.descricao}}</td>
+          <td>{{this.categoria}}</td>
+          <td
+            class="{{#if (eq this.tipo 'Entrada')}}mov-entrada{{else}}mov-saida{{/if}}"
+          >
+            {{this.tipo}}
+          </td>
+          <td>{{this.valor}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    <h4>Total do Caixa: {{totalCaixa}}</h4>
+
+    {{else}}
+    <p>Nenhuma movimentação encontrada para caixas secundários.</p>
+    {{/each}}
     <div class="total-saldo">
-      Saldo Total do Sistema: {{report.saldoTotalSistema}}
+      Saldo dos Empréstimos: {{report.saldoTotalSistema}}
     </div>
   </body>
 </html>

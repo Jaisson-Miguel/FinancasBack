@@ -28,20 +28,24 @@ const generatePdfReport = async (req, res) => {
     const movimentacoes = await Movimentacao.find()
       .populate("caixaId") // Popula o campo caixaId com os dados do Caixa
       .sort({ data: 1 }); // Ordenar pela data da movimentação, da mais antiga para a mais recente
-
     const caixas = await Caixa.find();
-    // O saldo total do sistema é obtido da tabela de caixas, conforme sua memória
-    const saldoTotalSistema = caixas.reduce(
-      (acc, caixa) => acc + caixa.saldo,
-      0
-    );
+
+    // O saldo total do sistema agora será a soma apenas dos caixas secundários
+    const saldoTotalCaixasSecundarios = caixas.reduce((acc, caixa) => {
+      // Exclui o caixa "Principal" da soma
+      if (caixa.nome !== "Principal") {
+        return acc + caixa.saldo;
+      }
+      return acc;
+    }, 0);
 
     // 2. Processar e agrupar os dados
     const dadosRelatorio = {
       dataGeracao: new Date().toLocaleDateString("pt-BR"),
       movimentacoesPorCaixaSecundario: [],
       movimentacoesCaixaPrincipalPorCategoria: [],
-      saldoTotalSistema: formatCurrency(saldoTotalSistema),
+      // Agora o saldoTotalSistema reflete apenas a soma dos caixas secundários
+      saldoTotalSistema: formatCurrency(saldoTotalCaixasSecundarios),
     };
 
     const gruposPorCaixaSecundario = {};
@@ -74,6 +78,7 @@ const generatePdfReport = async (req, res) => {
           gruposPorCaixaSecundario[caixaNome] = {
             nome: caixaNome,
             movimentacoes: [],
+            totalCaixa: 0, // <-- Adicionado: Inicializa o total para esta caixa
           };
         }
         gruposPorCaixaSecundario[caixaNome].movimentacoes.push({
@@ -83,12 +88,18 @@ const generatePdfReport = async (req, res) => {
           tipo: tipoMovimentacao === "entrada" ? "Entrada" : "Saída",
           valor: formatCurrency(mov.valor), // Formata o valor absoluto
         });
+        // <-- Adicionado: Soma o valor da movimentação ao total da caixa
+        gruposPorCaixaSecundario[caixaNome].totalCaixa += mov.valor;
       }
     }
 
     dadosRelatorio.movimentacoesPorCaixaSecundario = Object.values(
       gruposPorCaixaSecundario
-    );
+    ).map((grupo) => ({
+      ...grupo,
+      totalCaixa: formatCurrency(grupo.totalCaixa), // <-- Adicionado: Formata o total da caixa
+    }));
+
     dadosRelatorio.movimentacoesCaixaPrincipalPorCategoria = Object.values(
       gruposCaixaPrincipalPorCategoria
     ).map((grupo) => ({
@@ -109,11 +120,11 @@ const generatePdfReport = async (req, res) => {
       format: "A4",
       orientation: "portrait",
       border: "10mm",
-      header: {
-        height: "15mm",
-        contents:
-          '<div style="text-align: center; font-size: 12px; color: #444;">Relatório de Movimentações Financeiras</div>',
-      },
+      // Removendo o cabeçalho conforme sua preferência
+      // header: {
+      //   height: "10mm",
+      //   contents: '<div style="text-align: center;">Relatório Financeiro</div>'
+      // },
       footer: {
         height: "10mm",
         contents: {
@@ -123,12 +134,6 @@ const generatePdfReport = async (req, res) => {
           last: "Última Página",
         },
       },
-      // Remova a seção 'helpers' daqui, pois registramos globalmente
-      // helpers: {
-      //   eq: function (v1, v2) {
-      //     return v1 === v2;
-      //   },
-      // },
     };
 
     const document = {

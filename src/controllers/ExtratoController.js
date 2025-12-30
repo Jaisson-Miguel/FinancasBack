@@ -21,7 +21,6 @@ export default {
   async porCaixa(req, res) {
     try {
       let { caixaId } = req.params;
-      console.log("🔍 caixaId recebido:", caixaId);
       // Se o parâmetro for "principal", busca o _id real
       if (caixaId === "Principal") {
         const caixaPrincipal = await Caixa.findOne({ nome: "Principal" });
@@ -54,8 +53,14 @@ export default {
   // --- ROTA: GET /extrato/categorias/:caixaId ---
   async relatorioCategorias(req, res) {
     try {
-      let matchQuery = {
-        $or: [{ valor: { $lt: 0 } }, { categoria: "Empréstimos" }],
+      // 1. Agrupamento de categorias (excluindo "inicio")
+      const matchQuery = {
+        $and: [
+          {
+            $or: [{ valor: { $lt: 0 } }, { categoria: "Empréstimos" }],
+          },
+          { categoria: { $ne: "inicio" } },
+        ],
       };
 
       const relatorio = await Movimentacao.aggregate([
@@ -69,7 +74,27 @@ export default {
         { $sort: { total: 1 } },
       ]);
 
-      return res.json(relatorio);
+      // 2. Soma das movimentações com categoria "entrada"
+      const entrada = await Movimentacao.aggregate([
+        {
+          $match: {
+            categoria: "Entrada",
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalEntrada: { $sum: "$valor" },
+          },
+        },
+      ]);
+
+      const totalEntrada = entrada.length > 0 ? entrada[0].totalEntrada : 0;
+      // 3. Retorno final
+      return res.json({
+        categorias: relatorio,
+        totalEntrada,
+      });
     } catch (error) {
       console.error("Erro no relatório de categorias:", error);
       return res.status(500).json({ error: "Erro ao gerar relatório." });
