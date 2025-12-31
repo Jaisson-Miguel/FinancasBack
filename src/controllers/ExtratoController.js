@@ -1,5 +1,6 @@
 import Movimentacao from "../models/Movimentacao.js";
-import Caixa from "../models/Caixa.js"; // Importa o modelo de Caixa
+import Caixa from "../models/Caixa.js";
+import Adicional from "../models/Adicional.js";
 import mongoose from "mongoose";
 
 export default {
@@ -53,18 +54,14 @@ export default {
   // --- ROTA: GET /extrato/categorias/:caixaId ---
   async relatorioCategorias(req, res) {
     try {
-      // 1. Agrupamento de categorias (excluindo "inicio")
-      const matchQuery = {
-        $and: [
-          {
-            $or: [{ valor: { $lt: 0 } }, { categoria: "Empréstimos" }],
+      // --- 1. Processamento de Gastos Operacionais ---
+      const gastosOperacionais = await Movimentacao.aggregate([
+        {
+          $match: {
+            valor: { $lt: 0 },
+            categoria: { $nin: ["Empréstimos", "Inicio", "Entrada"] },
           },
-          { categoria: { $ne: "inicio" } },
-        ],
-      };
-
-      const relatorio = await Movimentacao.aggregate([
-        { $match: matchQuery },
+        },
         {
           $group: {
             _id: "$categoria",
@@ -72,10 +69,78 @@ export default {
           },
         },
         { $sort: { total: 1 } },
+        {
+          $project: {
+            _id: 0,
+            nome: "$_id",
+            valor: "$total",
+            valorAbsoluto: { $abs: "$total" },
+          },
+        },
       ]);
+      const totalGastos = gastosOperacionais.reduce(
+        (acc, item) => acc + item.valorAbsoluto,
+        0
+      );
 
-      // 2. Soma das movimentações com categoria "entrada"
-      const entrada = await Movimentacao.aggregate([
+      // --- 2. Processamento de Empréstimos / Caixas ---
+      const listaEmprestimos = await Movimentacao.aggregate([
+        {
+          $match: {
+            categoria: "Empréstimos",
+          },
+        },
+        {
+          $group: {
+            _id: "$categoria",
+            total: { $sum: "$valor" },
+          },
+        },
+        { $sort: { total: -1 } },
+        {
+          $project: {
+            _id: 0,
+            nome: "$_id",
+            valor: "$total",
+            valorAbsoluto: { $abs: "$total" },
+          },
+        },
+      ]);
+      const totalEmprestimos = listaEmprestimos.reduce(
+        (acc, item) => acc + item.valor,
+        0
+      );
+
+      // --- 3. Processamento de Saldos Iniciais (Categoria "Inicio") ---
+      const listaInicio = await Movimentacao.aggregate([
+        {
+          $match: {
+            categoria: "Inicio",
+          },
+        },
+        {
+          $group: {
+            _id: "$categoria",
+            total: { $sum: "$valor" },
+          },
+        },
+        { $sort: { total: -1 } },
+        {
+          $project: {
+            _id: 0,
+            nome: "$_id",
+            valor: "$total",
+            valorAbsoluto: { $abs: "$total" },
+          },
+        },
+      ]);
+      const totalInicio = listaInicio.reduce(
+        (acc, item) => acc + item.valor,
+        0
+      );
+
+      // --- 4. Processamento de Entradas Diretas ---
+      const entradasDiretas = await Movimentacao.aggregate([
         {
           $match: {
             categoria: "Entrada",
@@ -84,16 +149,53 @@ export default {
         {
           $group: {
             _id: null,
-            totalEntrada: { $sum: "$valor" },
+            total: { $sum: "$valor" },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            nome: "Entradas Diretas",
+            valor: "$total",
+            valorAbsoluto: { $abs: "$total" },
           },
         },
       ]);
+      const totalEntrada =
+        entradasDiretas.length > 0 ? entradasDiretas[0].valor : 0;
+      const listaEntradas = entradasDiretas.length > 0 ? entradasDiretas : [];
 
-      const totalEntrada = entrada.length > 0 ? entrada[0].totalEntrada : 0;
-      // 3. Retorno final
+      // --- NOVO: Buscar as metas de porcentagem fixa da coleção Adicional ---
+      // Buscamos todos os documentos da coleção Adicional que representam metas de porcentagem.
+      // Podemos definir um 'grupo' específico para elas, por exemplo, 'metas_categorias',
+      // ou simplesmente buscar todas as chaves que você sabe que são metas.
+      // Por simplicidade, vamos assumir que todas as entradas em Adicional com 'valor'
+      // são metas de porcentagem para categorias.
+      const metasAdicionais = await Adicional.find({
+        valor: { $exists: true },
+      });
+
+      // Transformar o array de documentos em um objeto para fácil acesso no frontend
+      // Ex: { "Alimentação": 20, "Transporte": 10, ... }
+      const metasPorcentagemFixa = metasAdicionais.reduce((acc, meta) => {
+        // A chave no BD é o nome da categoria (ex: "Alimentação")
+        // O valor no BD é a porcentagem (ex: 20)
+        acc[meta.chave] = meta.valor;
+        return acc;
+      }, {});
+      // -------------------------------------------------------------------
+
+      // --- 5. Retorno Final Consolidado ---
       return res.json({
-        categorias: relatorio,
-        totalEntrada,
+        gastos: gastosOperacionais,
+        totalGastos: totalGastos,
+        emprestimos: listaEmprestimos,
+        totalEmprestimos: totalEmprestimos,
+        inicio: listaInicio,
+        totalInicio: totalInicio,
+        entradas: listaEntradas,
+        totalEntrada: totalEntrada,
+        metasPorcentagemFixa: metasPorcentagemFixa, // Adiciona as metas ao retorno
       });
     } catch (error) {
       console.error("Erro no relatório de categorias:", error);
