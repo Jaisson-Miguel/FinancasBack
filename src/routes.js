@@ -6,6 +6,10 @@ import ExtratoController from "./controllers/ExtratoController.js";
 import { generatePdfReport } from "./controllers/RelatorioController.js";
 import AdicionalController from "./controllers/AdicionalController.js";
 import { resetCaixaSecundario } from "./controllers/ResetController.js";
+import {
+  VerificarIntegridadePrincipal,
+  CreateResetMovimentacoes,
+} from "./controllers/ResetPController.js";
 
 const routes = Router();
 
@@ -45,4 +49,11 @@ routes.get("/relatorio-pdf", generatePdfReport);
 
 //Reseta o Mês
 routes.post("/caixas/:id/reset", resetCaixaSecundario);
+
+// Rota para VERIFICAR a integridade do Caixa Principal
+routes.get("/principal/verificar-integridade", VerificarIntegridadePrincipal); // Nova rota para a verificação
+
+// Rota para CRIAR as movimentações de ajuste do Caixa Principal (após confirmação)
+routes.post("/principal/criar-movimentacoes-ajuste", CreateResetMovimentacoes); // Nova rota para a criação
+
 export default routes;
