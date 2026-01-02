@@ -173,6 +173,12 @@ export default {
       // são metas de porcentagem para categorias.
       const metasAdicionais = await Adicional.find({
         valor: { $exists: true },
+        grupo: "Calculo",
+      });
+
+      const metasAjuste = await Adicional.find({
+        valor: { $exists: true },
+        grupo: "Saldo",
       });
 
       // Transformar o array de documentos em um objeto para fácil acesso no frontend
@@ -181,6 +187,13 @@ export default {
         // A chave no BD é o nome da categoria (ex: "Alimentação")
         // O valor no BD é a porcentagem (ex: 20)
         acc[meta.chave] = meta.valor;
+        return acc;
+      }, {});
+
+      const metasAjusteValor = metasAjuste.reduce((acc, metaA) => {
+        // A chave no BD é o nome da categoria (ex: "Alimentação")
+        // O valor no BD é a porcentagem (ex: 20)
+        acc[metaA.chave] = metaA.valor;
         return acc;
       }, {});
       // -------------------------------------------------------------------
@@ -195,7 +208,8 @@ export default {
         totalInicio: totalInicio,
         entradas: listaEntradas,
         totalEntrada: totalEntrada,
-        metasPorcentagemFixa: metasPorcentagemFixa, // Adiciona as metas ao retorno
+        metasPorcentagemFixa: metasPorcentagemFixa,
+        metasAjusteValor: metasAjusteValor,
       });
     } catch (error) {
       console.error("Erro no relatório de categorias:", error);
