@@ -145,7 +145,7 @@ class ContaController {
         const valorSaida = -Math.abs(pg.valor);
 
         await Movimentacao.create({
-          descricao: `Pagamento Parcial: ${conta.descricao} (${conta.instituicao})`,
+          descricao: `${conta.descricao} (${conta.instituicao})`,
           valor: valorSaida,
           tipo: "saida",
           caixaId: pg.caixaId,
