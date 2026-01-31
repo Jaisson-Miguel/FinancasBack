@@ -1,22 +1,28 @@
-// src/controllers/RelatorioController.js
 import pdf from "pdf-creator-node";
 import fs from "fs";
 import path from "path";
 import Movimentacao from "../models/Movimentacao.js";
 import Caixa from "../models/Caixa.js";
-import Handlebars from "handlebars"; // <-- Importe o Handlebars aqui
+import Handlebars from "handlebars";
 
-// Função auxiliar para formatar valores monetários
+// Função auxiliar para formatar valores monetários (SEM SINAL - para as linhas da tabela)
 const formatCurrency = (value) => {
-  // Usa Math.abs para formatar o valor absoluto, pois o sinal será tratado pelo "tipo"
+  // Usa Math.abs para formatar o valor absoluto, pois o sinal será tratado pelo "tipo" na tabela
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
   }).format(Math.abs(value));
 };
 
+// NOVA FUNÇÃO: Formatar valores COM SINAL (para os totais)
+const formatCurrencyWithSign = (value) => {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value); // Aqui NÃO usamos Math.abs, para manter o negativo
+};
+
 // --- REGISTRAR HELPER 'eq' GLOBALMENTE ANTES DE TUDO ---
-// Isso garante que o helper esteja disponível para qualquer template Handlebars
 Handlebars.registerHelper("eq", function (v1, v2) {
   return v1 === v2;
 });
@@ -26,13 +32,12 @@ const generatePdfReport = async (req, res) => {
   try {
     // 1. Obter todas as movimentações e caixas
     const movimentacoes = await Movimentacao.find()
-      .populate("caixaId") // Popula o campo caixaId com os dados do Caixa
-      .sort({ data: 1 }); // Ordenar pela data da movimentação, da mais antiga para a mais recente
+      .populate("caixaId")
+      .sort({ data: 1 });
     const caixas = await Caixa.find();
 
     // O saldo total do sistema agora será a soma apenas dos caixas secundários
     const saldoTotalCaixasSecundarios = caixas.reduce((acc, caixa) => {
-      // Exclui o caixa "Principal" da soma
       if (caixa.nome !== "Principal") {
         return acc + caixa.saldo;
       }
@@ -44,16 +49,16 @@ const generatePdfReport = async (req, res) => {
       dataGeracao: new Date().toLocaleDateString("pt-BR"),
       movimentacoesPorCaixaSecundario: [],
       movimentacoesCaixaPrincipalPorCategoria: [],
-      // Agora o saldoTotalSistema reflete apenas a soma dos caixas secundários
-      saldoTotalSistema: formatCurrency(saldoTotalCaixasSecundarios),
+      // ALTERADO: Usa a função com sinal para o saldo total
+      saldoTotalSistema: formatCurrencyWithSign(saldoTotalCaixasSecundarios),
     };
 
     const gruposPorCaixaSecundario = {};
     const gruposCaixaPrincipalPorCategoria = {};
 
     for (const mov of movimentacoes) {
-      const caixaNome = mov.caixaId.nome; // Acessa o nome do caixa populado
-      const tipoMovimentacao = mov.valor >= 0 ? "entrada" : "saida"; // Determina o tipo pelo sinal do valor
+      const caixaNome = mov.caixaId.nome;
+      const tipoMovimentacao = mov.valor >= 0 ? "entrada" : "saida";
 
       if (caixaNome === "Principal") {
         // Movimentações do Caixa Principal agrupadas por categoria
@@ -69,16 +74,16 @@ const generatePdfReport = async (req, res) => {
           data: mov.data.toLocaleDateString("pt-BR"),
           descricao: mov.descricao,
           tipo: tipoMovimentacao === "entrada" ? "Entrada" : "Saída",
-          valor: formatCurrency(mov.valor), // Formata o valor absoluto
+          valor: formatCurrency(mov.valor), // Mantém absoluto na tabela
         });
-        gruposCaixaPrincipalPorCategoria[categoria].totalCategoria += mov.valor; // Soma o valor real (positivo ou negativo)
+        gruposCaixaPrincipalPorCategoria[categoria].totalCategoria += mov.valor;
       } else {
         // Movimentações de Caixas Secundários detalhadas por caixa
         if (!gruposPorCaixaSecundario[caixaNome]) {
           gruposPorCaixaSecundario[caixaNome] = {
             nome: caixaNome,
             movimentacoes: [],
-            totalCaixa: 0, // <-- Adicionado: Inicializa o total para esta caixa
+            totalCaixa: 0,
           };
         }
         gruposPorCaixaSecundario[caixaNome].movimentacoes.push({
@@ -86,9 +91,8 @@ const generatePdfReport = async (req, res) => {
           descricao: mov.descricao,
           categoria: mov.categoria,
           tipo: tipoMovimentacao === "entrada" ? "Entrada" : "Saída",
-          valor: formatCurrency(mov.valor), // Formata o valor absoluto
+          valor: formatCurrency(mov.valor), // Mantém absoluto na tabela
         });
-        // <-- Adicionado: Soma o valor da movimentação ao total da caixa
         gruposPorCaixaSecundario[caixaNome].totalCaixa += mov.valor;
       }
     }
@@ -97,14 +101,16 @@ const generatePdfReport = async (req, res) => {
       gruposPorCaixaSecundario
     ).map((grupo) => ({
       ...grupo,
-      totalCaixa: formatCurrency(grupo.totalCaixa), // <-- Adicionado: Formata o total da caixa
+      // ALTERADO: Usa a função com sinal para o total da caixa
+      totalCaixa: formatCurrencyWithSign(grupo.totalCaixa),
     }));
 
     dadosRelatorio.movimentacoesCaixaPrincipalPorCategoria = Object.values(
       gruposCaixaPrincipalPorCategoria
     ).map((grupo) => ({
       ...grupo,
-      totalCategoria: formatCurrency(grupo.totalCategoria), // Formata o total da categoria
+      // ALTERADO: Usa a função com sinal para o total da categoria
+      totalCategoria: formatCurrencyWithSign(grupo.totalCategoria),
     }));
 
     // 3. Carregar o template HTML
@@ -120,11 +126,6 @@ const generatePdfReport = async (req, res) => {
       format: "A4",
       orientation: "portrait",
       border: "10mm",
-      // Removendo o cabeçalho conforme sua preferência
-      // header: {
-      //   height: "10mm",
-      //   contents: '<div style="text-align: center;">Relatório Financeiro</div>'
-      // },
       footer: {
         height: "10mm",
         contents: {
@@ -141,8 +142,8 @@ const generatePdfReport = async (req, res) => {
       data: {
         report: dadosRelatorio,
       },
-      path: "./output.pdf", // Caminho temporário para salvar o PDF no servidor
-      type: "buffer", // Retorna o PDF como um buffer
+      path: "./output.pdf",
+      type: "buffer",
     };
 
     // 4. Gerar o PDF
